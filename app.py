@@ -4,6 +4,20 @@ import pandas as pd
 import numpy as np
 import joblib
 
+import os
+
+df = None
+if os.path.exists("laptop.csv"):
+    try:
+        df = pd.read_csv("laptop.csv")
+        df['price_float'] = df['Price'].replace('[₹,]', '', regex=True).astype(float)
+        df['sgd_price'] = df['price_float'] * 0.016
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load or process laptop.csv: {e}")
+else:
+    st.warning("⚠️ laptop.csv not found in project directory.")
+
+
 # --- Page Setup ---
 st.set_page_config(
     page_title="Laptop Price Predictor 💻",
@@ -144,6 +158,27 @@ if st.button("🔮 Estimate My Laptop Value"):
     except Exception as e:
         st.error(f"Prediction failed: {e}")
 
+
+
+st.markdown("---")
+st.header("🎯 Find a Laptop Close to Your Budget")
+
+user_budget = st.number_input("💵 Enter Your Target Budget (in SGD):", min_value=100.0, step=50.0)
+
+if st.button("📌 Suggest Closest Laptop"):
+    if "sgd_price" not in df.columns or "Model" not in df.columns:
+        st.error("❌ Missing 'Model' or 'sgd_price' column in the dataset.")
+    else:
+        closest = df.iloc[(df['sgd_price'] - user_budget).abs().argsort()[:1]]
+        st.subheader("💻 Closest Laptop Match:")
+        st.write(f"**Model:** {closest['Model'].values[0]}")
+        st.write(f"**Estimated Price (SGD):** ${closest['sgd_price'].values[0]:,.2f}")
+        
+        with st.expander("📊 View Key Specs"):
+            specs = closest.drop(columns=['Price', 'price_float', 'sgd_price']).T
+            st.dataframe(specs.rename(columns={closest.index[0]: "Details"}))
+
+
 # --- History Viewer ---
 if st.checkbox("📜 Show past predictions"):
     st.write(pd.DataFrame([
@@ -160,3 +195,4 @@ with st.expander("📌 What affects the price most?"):
 - Display Type
 - Rating (after scaling)
 """)
+
